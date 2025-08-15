@@ -16,8 +16,8 @@ RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?r
 
 # Data files
 data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/  # e.g. /path/to/Voxceleb
-data_folder_noise: !ref project2/shrikann_35/nmehlman/data/svpp-data/noise # The noisy sequences for data augmentation will automatically be downloaded here.
-data_folder_rir: !ref project2/shrikann_35/nmehlman/data/svpp-data/rir # The impulse responses used for data augmentation will automatically be downloaded here.
+data_folder_noise: /project2/shrikann_35/nmehlman/data/svpp-data/noise # The noisy sequences for data augmentation will automatically be downloaded here.
+data_folder_rir: /project2/shrikann_35/nmehlman/data/svpp-data/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 train_annotation: !ref <save_folder>/train.csv
 valid_annotation: !ref <save_folder>/dev.csv
 noise_annotation: !ref <save_folder>/noise.csv

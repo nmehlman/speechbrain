@@ -31,6 +31,7 @@ SAMPLERATE = 16000
 DEV_WAV = "vox1_dev_wav.zip"
 TEST_WAV = "vox1_test_wav.zip"
 META = "meta"
+POISON_DIR = "/project2/shrikann_35/nmehlman/data/svpp-data/posioned/vox1-poison"
 
 
 def prepare_voxceleb(
@@ -45,6 +46,8 @@ def prepare_voxceleb(
     split_speaker=False,
     random_segment=False,
     skip_prep=False,
+    poisoned=False,
+    poisoned_data_folder=None,
 ):
     """
     Prepares the csv files for the Voxceleb1 or Voxceleb2 datasets.
@@ -90,6 +93,9 @@ def prepare_voxceleb(
     >>> split_ratio = [90, 10]
     >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio)
     """
+
+    if poisoned:
+        logger.info("Poisoning training data")
 
     if skip_prep:
         return
@@ -140,7 +146,7 @@ def prepare_voxceleb(
 
     # Split data into 90% train and 10% validation (verification split)
     wav_lst_train, wav_lst_dev = _get_utt_split_lists(
-        data_folder, split_ratio, verification_pairs_file, split_speaker
+        data_folder, split_ratio, verification_pairs_file, split_speaker, poisoned, poisoned_data_folder
     )
 
     # Creating csv file for training data
@@ -254,7 +260,7 @@ def _check_voxceleb_folders(data_folders, splits):
 
 # Used for verification split
 def _get_utt_split_lists(
-    data_folders, split_ratio, verification_pairs_file, split_speaker=False
+    data_folders, split_ratio, verification_pairs_file, split_speaker=False, poisoned=False, poisoned_data_folder=None
 ):
     """
     Tot. number of speakers vox1= 1211.
@@ -311,6 +317,22 @@ def _get_utt_split_lists(
 
             train_lst.extend(train_snts)
             dev_lst.extend(dev_snts)
+
+    if poisoned: # Add poisoned data to training set
+        assert poisoned_data_folder is not None, "Poisoned data folder must be specified when poisoned=True"
+        
+        poisoned_audio_list = []
+        path = os.path.join(poisoned_data_folder, "wav", "**", "*.wav")
+        for f in glob.glob(path, recursive=True):
+            try:
+                spk_id = f.split("/wav/")[1].split("/")[0]
+            except ValueError:
+                logger.info(f"Malformed path: {f}")
+                continue
+            if spk_id not in test_spks:
+                poisoned_audio_list.append(f)
+        
+        train_lst.extend(poisoned_audio_list)
 
     return train_lst, dev_lst
 

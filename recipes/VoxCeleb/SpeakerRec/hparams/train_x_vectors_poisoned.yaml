@@ -1,22 +1,23 @@
 # ################################
-# Model: Speaker verification with ResNet
-# Authors: Mickael Rouvier 2022
-#          Xuechen Liu 2023
+# Model: Speaker identification with ECAPA
+# Authors: Hwidong Na & Mirco Ravanelli
 # ################################
 
 # Basic parameters
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref /project2/shrikann_35/nmehlman/logs/svpp/speechbrain-resnet-repro
+output_folder: !ref /project2/shrikann_35/nmehlman/logs/svpp/poisoning-test
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+poisoned: true
+poisoned_data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/posioned/vox1-poison  
 
 # Data for augmentation
 NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
 RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
 
 # Data files
-data_folder:  /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/   # e.g. /path/to/Voxceleb
+data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/  # e.g. /path/to/Voxceleb
 data_folder_noise: /project2/shrikann_35/nmehlman/data/svpp-data/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: /project2/shrikann_35/nmehlman/data/svpp-data/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 train_annotation: !ref <save_folder>/train.csv
@@ -37,26 +38,25 @@ skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 10
-batch_size: 16 # MOD: reduced from 32
-lr: 0.0005 # MOD: reduced from 0.001
-base_lr: 0.000000005 # MOD: reduced from 0.00000001
-max_lr: !ref <lr>
-step_size: 65000
+number_of_epochs: 20
+batch_size: 256
+lr: 0.001
+lr_final: 0.0001
+
 sample_rate: 16000
 sentence_len: 3.0 # seconds
 shuffle: True
 random_chunk: True
 
 # Feature parameters
-n_mels: 80
+n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
 
 # Number of speakers
-# 1211 for vox1, 5994 for vox2, 7205 for vox1+vox2
-out_n_neurons: 1211
+out_n_neurons: 1211 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+emb_dim: 512
 
 num_workers: 4
 dataloader_options:
@@ -71,15 +71,20 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-embedding_model: !new:speechbrain.lobes.models.ResNet.ResNet
-    input_size: !ref <n_mels>
-    channels: [128, 128, 256, 256]
-    strides: [1, 2, 2, 2]
-    block_sizes: [3, 4, 6, 3]
-    lin_neurons: 256
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: !ref <emb_dim>
 
-classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    input_shape: [null, null, !ref <emb_dim>]
+    activation: !name:torch.nn.LeakyReLU
+    lin_blocks: 1
+    lin_neurons: !ref <emb_dim>
     out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -156,21 +161,18 @@ modules:
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
 
-compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-        margin: 0.2
-        scale: 30
-
+# Cost + optimization
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 # compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
 
-lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -187,4 +189,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         classifier: !ref <classifier>
         normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
-        lr_annealing: !ref <lr_annealing>

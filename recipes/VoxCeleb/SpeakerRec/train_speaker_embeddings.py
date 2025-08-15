@@ -218,6 +218,8 @@ if __name__ == "__main__":
             "split_ratio": hparams["split_ratio"],
             "seg_dur": hparams["sentence_len"],
             "skip_prep": hparams["skip_prep"],
+            "poisoned": hparams.get("poisoned", False),
+            "poisoned_data_folder": hparams.get("poisoned_data_folder", None)
         },
     )
     sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
