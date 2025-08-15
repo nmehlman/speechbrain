@@ -26,6 +26,14 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 
+import warnings
+
+# Suppress specific warnings
+warnings.filterwarnings(
+    "ignore",
+    message="In 2.9, this function's implementation will be changed to use torchaudio.load_with_torchcodec",
+)
+
 
 class SpeakerBrain(sb.core.Brain):
     """Class for speaker embedding training"""
