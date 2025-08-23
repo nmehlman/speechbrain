@@ -76,6 +76,7 @@ def compute_embedding_loop(data_loader):
             emb = compute_embedding(wavs, lens).unsqueeze(1)
             for i, seg_id in enumerate(seg_ids):
                 embedding_dict[seg_id] = emb[i].detach().clone()
+    
     return embedding_dict
 
 
@@ -183,7 +184,23 @@ def dataio_prep(params):
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
-    datasets = [train_data, enrol_data, test_data]
+    if params.get("run_protected_eval", False):
+        
+        enrol_data_protected = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=params["protected_enrol_data"],
+            replacements={"data_root": data_folder},
+        )
+
+        # Test data
+        test_data_protected = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=params["protected_test_data"],
+            replacements={"data_root": data_folder},
+        )
+
+        datasets = [train_data, enrol_data, test_data, enrol_data_protected, test_data_protected]
+    
+    else:
+        datasets = [train_data, enrol_data, test_data]
 
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
@@ -214,17 +231,28 @@ def dataio_prep(params):
         test_data, **params["test_dataloader_opts"]
     )
 
-    return train_dataloader, enrol_dataloader, test_dataloader
+    if params.get("run_protected_eval", False):
+        enrol_dataloader_protected = sb.dataio.dataloader.make_dataloader(
+            enrol_data_protected, **params["enrol_dataloader_opts"]
+        )
+        test_dataloader_protected = sb.dataio.dataloader.make_dataloader(
+            test_data_protected, **params["test_dataloader_opts"]
+        )
+        return train_dataloader, enrol_dataloader, test_dataloader, enrol_dataloader_protected, test_dataloader_protected
+
+    else:
+        return train_dataloader, enrol_dataloader, test_dataloader
 
 
 if __name__ == "__main__":
+    
     # Logger setup
     logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
@@ -243,22 +271,32 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    run_protected_eval = params.get("run_protected_eval", False)
+    splits = ["train", "enrol", "test"] if not run_protected_eval else ["train", "enrol", "test", "protected"]
+
     # Prepare data from dev of Voxceleb1
     prepare_voxceleb(
         data_folder=params["data_folder"],
         save_folder=params["save_folder"],
         verification_pairs_file=veri_file_path,
-        splits=["train", "dev", "test"],
+        splits=splits,
         split_ratio=params["split_ratio"],
         seg_dur=3.0,
         skip_prep=params["skip_prep"],
         source=(
             params["voxceleb_source"] if "voxceleb_source" in params else None
         ),
+        protected_data_folder = params.get("protected_data_folder", None),
+        protected_verification_pairs_file = params.get(
+                "protected_verification_pairs_file", None
+        ) 
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_dataloader, enrol_dataloader, test_dataloader = dataio_prep(params)
+    if run_protected_eval:
+        train_dataloader, enrol_dataloader, test_dataloader, enrol_dataloader_protected, test_dataloader_protected = dataio_prep(params)
+    else:
+        train_dataloader, enrol_dataloader, test_dataloader = dataio_prep(params)
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
@@ -273,6 +311,11 @@ if __name__ == "__main__":
     # First run
     enrol_dict = compute_embedding_loop(enrol_dataloader)
     test_dict = compute_embedding_loop(test_dataloader)
+
+    if run_protected_eval:
+        logger.info("Computing protected user enroll/test embeddings...")
+        enrol_dict_protected = compute_embedding_loop(enrol_dataloader_protected)
+        test_dict_protected = compute_embedding_loop(test_dataloader_protected)
 
     if "score_norm" in params:
         train_dict = compute_embedding_loop(train_dataloader)
@@ -293,3 +336,21 @@ if __name__ == "__main__":
         torch.tensor(positive_scores), torch.tensor(negative_scores)
     )
     logger.info("minDCF=%f", min_dcf * 100)
+
+    if run_protected_eval:
+        logger.info("Computing EER for protected user..")
+        with open(params['protected_verification_pairs_file'], encoding="utf-8") as f:
+            veri_protected_test = [line.rstrip() for line in f]
+
+        enrol_dict = enrol_dict_protected
+        test_dict = test_dict_protected
+        positive_scores, negative_scores = get_verification_scores(veri_protected_test)
+        del enrol_dict, test_dict
+
+        protected_eer, protected_th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+        logger.info("Protected User EER(%%)=%f", protected_eer * 100)
+
+        protected_min_dcf, protected_th = minDCF(
+            torch.tensor(positive_scores), torch.tensor(negative_scores)
+        )
+        logger.info("Protected User minDCF=%f", protected_min_dcf * 100)

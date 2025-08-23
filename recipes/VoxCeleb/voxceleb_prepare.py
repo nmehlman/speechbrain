@@ -25,13 +25,14 @@ TRAIN_CSV = "train.csv"
 DEV_CSV = "dev.csv"
 TEST_CSV = "test.csv"
 ENROL_CSV = "enrol.csv"
+PROTECTED_TEST_CSV = "protected_test.csv"
+PROTECTED_ENROL_CSV = "protected_enrol.csv"
 SAMPLERATE = 16000
 
 
 DEV_WAV = "vox1_dev_wav.zip"
 TEST_WAV = "vox1_test_wav.zip"
 META = "meta"
-POISON_DIR = "/project2/shrikann_35/nmehlman/data/svpp-data/posioned/vox1-poison"
 
 
 def prepare_voxceleb(
@@ -48,6 +49,8 @@ def prepare_voxceleb(
     skip_prep=False,
     poisoned=False,
     poisoned_data_folder=None,
+    protected_data_folder=None,
+    protected_verification_pairs_file=None,
 ):
     """
     Prepares the csv files for the Voxceleb1 or Voxceleb2 datasets.
@@ -151,6 +154,7 @@ def prepare_voxceleb(
 
     # Creating csv file for training data
     if "train" in splits:
+        pass
         prepare_csv(
             seg_dur, wav_lst_train, save_csv_train, random_segment, amp_th
         )
@@ -162,6 +166,15 @@ def prepare_voxceleb(
     if "test" in splits:
         prepare_csv_enrol_test(
             data_folder, save_folder, verification_pairs_file
+        )
+
+    # For protected speaker verification
+    if 'protected' in splits:
+        prepare_csv_protected(
+            vox_data_folder=data_folder[0],  
+            protected_user_data_folder=protected_data_folder, 
+            save_folder=save_folder, 
+            verification_pairs_file=protected_verification_pairs_file
         )
 
     # Saving options (useful to skip this phase when already done)
@@ -193,6 +206,7 @@ def skip(splits, save_folder, conf):
         "dev": DEV_CSV,
         "test": TEST_CSV,
         "enrol": ENROL_CSV,
+        "protected": "null", # Needed for compatibility, not skipping any protected user fules
     }
     for split in splits:
         if not os.path.isfile(os.path.join(save_folder, split_files[split])):
@@ -332,6 +346,7 @@ def _get_utt_split_lists(
             if spk_id not in test_spks:
                 poisoned_audio_list.append(f)
         
+        print(f"Adding {len(poisoned_audio_list)} poisoned audio files to training set")
         train_lst.extend(poisoned_audio_list)
 
     return train_lst, dev_lst
@@ -554,3 +569,141 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
             )
             for line in csv_output:
                 csv_writer.writerow(line)
+
+def prepare_csv_protected(vox_data_folder, protected_user_data_folder, save_folder, verification_pairs_file):
+    """
+    TODO
+    """
+
+    # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
+    # logger.debug(msg)
+
+    csv_output_head = [
+        ["ID", "duration", "wav", "start", "stop", "spk_id"]
+    ]  # noqa E231
+    test_lst_file = verification_pairs_file
+
+    enrol_ids, test_ids_tgt, test_ids_non_tgt = [], [], []
+
+    # Get unique ids (enrol and test utterances)
+    for line in open(test_lst_file, encoding="utf-8"):
+        id_tgt = int(line.split(" ")[0].rstrip())
+        e_id = line.split(" ")[1].rstrip().split(".")[0].strip()
+        t_id = line.split(" ")[2].rstrip().split(".")[0].strip()
+        enrol_ids.append(e_id)
+        if id_tgt == 1:
+            test_ids_tgt.append(t_id)
+        else:
+            test_ids_non_tgt.append(t_id)
+
+    enrol_ids = list(set(enrol_ids))
+    test_ids_tgt = list(set(test_ids_tgt))
+    enrol_ids_tgt = list(set(test_ids_non_tgt))
+
+    # Prepare enrol csv
+    logger.info("preparing protected enrol csv")
+    enrol_csv = []
+    
+    for id in enrol_ids:
+        
+        # All enrol utterances are in the protected user data folder
+        wav = protected_user_data_folder + "/wav/" + id + ".wav"
+
+        # Reading the signal (to retrieve duration in seconds)
+        signal, fs = torchaudio.load(wav)
+        signal = signal.squeeze(0)
+        audio_duration = signal.shape[0] / SAMPLERATE
+        start_sample = 0
+        stop_sample = signal.shape[0]
+        spk_id = wav.split("/")[0]
+
+        csv_line = [
+            id,
+            audio_duration,
+            wav,
+            start_sample,
+            stop_sample,
+            spk_id,
+        ]
+
+        enrol_csv.append(csv_line)
+
+    csv_output = csv_output_head + enrol_csv
+    csv_file = os.path.join(save_folder, PROTECTED_ENROL_CSV)
+
+    # Writing the csv lines
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        for line in csv_output:
+            csv_writer.writerow(line)
+
+    # Prepare test csv
+    logger.info("preparing protected test csv")
+    test_csv = []
+    for id in test_ids_tgt:
+
+        wav = protected_user_data_folder + "/wav/" + id + ".wav"
+
+        # Reading the signal (to retrieve duration in seconds)
+        signal, fs = torchaudio.load(wav)
+        signal = signal.squeeze(0)
+        audio_duration = signal.shape[0] / SAMPLERATE
+        start_sample = 0
+        stop_sample = signal.shape[0]
+        [spk_id, sess_id, utt_id] = wav.split("/")[-3:]
+
+        csv_line = [
+            id,
+            audio_duration,
+            wav,
+            start_sample,
+            stop_sample,
+            spk_id,
+        ]
+
+        test_csv.append(csv_line)
+
+    for id in test_ids_non_tgt:
+
+        wav = vox_data_folder + "/wav/" + id + ".wav"
+
+        # Reading the signal (to retrieve duration in seconds)
+        signal, fs = torchaudio.load(wav)
+        signal = signal.squeeze(0)
+        audio_duration = signal.shape[0] / SAMPLERATE
+        start_sample = 0
+        stop_sample = signal.shape[0]
+        [spk_id, sess_id, utt_id] = wav.split("/")[-3:]
+
+        csv_line = [
+            id,
+            audio_duration,
+            wav,
+            start_sample,
+            stop_sample,
+            spk_id,
+        ]
+
+        test_csv.append(csv_line)
+
+    csv_output = csv_output_head + test_csv
+    csv_file = os.path.join(save_folder, PROTECTED_TEST_CSV)
+
+    # Writing the csv lines
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        for line in csv_output:
+            csv_writer.writerow(line)
+
+if __name__ == "__main__":
+
+    prepare_csv_protected(
+        vox_data_folder="/project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_merged_wav",
+        protected_user_data_folder="/project2/shrikann_35/nmehlman/data/svpp-data/posioned/vox1-clean-test",
+        save_folder="/home1/nmehlman/SVPP/test",
+        verification_pairs_file="/project2/shrikann_35/nmehlman/data/svpp-data/posioned/verification_pairs.txt"
+    )

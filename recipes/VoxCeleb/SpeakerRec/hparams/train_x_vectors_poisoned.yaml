@@ -6,18 +6,18 @@
 # Basic parameters
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref /project2/shrikann_35/nmehlman/logs/svpp/poisoning-test
+output_folder: !ref /project2/shrikann_35/nmehlman/logs/svpp/poisoned/model-2_vox2_poisoned_xvec
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 poisoned: true
-poisoned_data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/posioned/vox1-poison  
+poisoned_data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/poison/random/id08616/poison-data  
 
 # Data for augmentation
 NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
 RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
 
 # Data files
-data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/  # e.g. /path/to/Voxceleb
+data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_merged_wav/  # e.g. /path/to/Voxceleb
 data_folder_noise: /project2/shrikann_35/nmehlman/data/svpp-data/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: /project2/shrikann_35/nmehlman/data/svpp-data/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 train_annotation: !ref <save_folder>/train.csv
@@ -58,7 +58,7 @@ deltas: False
 out_n_neurons: 1211 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 emb_dim: 512
 
-num_workers: 4
+num_workers: 16
 dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: !ref <shuffle>
