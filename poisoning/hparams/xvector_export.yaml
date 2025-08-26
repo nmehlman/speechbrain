@@ -1,7 +1,6 @@
 # ################################
-# Model: Speaker Verification Baseline
-# Authors: Hwidong Na 2020
-#          Mirco Ravanelli 2020
+# Model: Speaker Verification Baseline using PLDA
+# Authors: Nauman Dawalatabad & Mirco Ravanelli 2020
 # ################################
 
 seed: 1234
@@ -9,11 +8,11 @@ __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Folders and train_log file
 data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_merged_wav
-output_folder: /project2/shrikann_35/nmehlman/logs/svpp/verification/repro-model-4
+output_folder: /project2/shrikann_35/nmehlman/logs/svpp/export/test
 save_folder: !ref <output_folder>/save/
 
 # Use the following links for the official voxceleb splits:
-# VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+# VoxCeleb1 (cleaned): https://wffww.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 # VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
 # VoxCeleb1-E (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_all2.txt.
 # VoxCeleb1-E and VoxCeleb1-H lists are drawn from the VoxCeleb1 training set.
@@ -24,13 +23,14 @@ verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-pretrain_path: speechbrain/spkrec-ecapa-voxceleb
+pretrain_path: "speechbrain/spkrec-xvect-voxceleb"
 
 # csv files
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
 split_ratio: [90, 10]
+
 skip_prep: False
 
 batch_size: 8
@@ -39,10 +39,9 @@ cohort_size: 20000 # amount of imposter utterances in normalization cohort
 n_train_snts: 400000 # used for normalization stats
 
 # Feature parameters
-n_mels: 80
-# left_frames: 0
-# right_frames: 0
-# deltas: False
+n_mels: 24
+emb_dim: 512
+rank_f: 100
 
 # Dataloader options
 train_dataloader_opts:
@@ -54,6 +53,7 @@ enrol_dataloader_opts:
 test_dataloader_opts:
     batch_size: !ref <batch_size>
 
+# Model params
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
 
@@ -61,13 +61,19 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-    input_size: !ref <n_mels>
-    channels: [1024, 1024, 1024, 1024, 3072]
-    kernel_sizes: [5, 3, 3, 3, 1]
-    dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
-    lin_neurons: 192
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: !ref <emb_dim>
+
+compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
+    rank_f: !ref <rank_f>
+    nb_iter: 10
+    scaling_factor: 0.05
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

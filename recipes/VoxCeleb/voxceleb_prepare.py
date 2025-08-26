@@ -596,9 +596,10 @@ def prepare_csv_protected(vox_data_folder, protected_user_data_folder, save_fold
         else:
             test_ids_non_tgt.append(t_id)
 
+    # Remove dub
     enrol_ids = list(set(enrol_ids))
     test_ids_tgt = list(set(test_ids_tgt))
-    enrol_ids_tgt = list(set(test_ids_non_tgt))
+    test_ids_non_tgt = list(set(test_ids_non_tgt))
 
     # Prepare enrol csv
     logger.info("preparing protected enrol csv")

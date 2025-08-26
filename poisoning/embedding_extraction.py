@@ -103,8 +103,8 @@ def compute_embeddings(params, wav_scp, outdir):
                 np.save(out_file, out_embedding)
                 del out_embedding, wav, data
 
-
 if __name__ == "__main__":
+    
     in_list = sys.argv[1]
     out_dir = sys.argv[2]
     os.makedirs(out_dir, exist_ok=True)

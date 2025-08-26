@@ -7,9 +7,15 @@
 seed: 1234
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
+run_protected_eval: True
+
 # Folders and train_log file
 data_folder: /project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_merged_wav
-output_folder: /project2/shrikann_35/nmehlman/logs/svpp/verification/repro-model-4
+protected_data_folder: null
+
+protected_verification_pairs_file: null
+
+output_folder: null
 save_folder: !ref <output_folder>/save/
 
 # Use the following links for the official voxceleb splits:
@@ -24,12 +30,15 @@ verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-pretrain_path: speechbrain/spkrec-ecapa-voxceleb
+pretrain_path: null
 
 # csv files
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+protected_enrol_data: !ref <save_folder>/protected_enrol.csv
+protected_test_data: !ref <save_folder>/protected_test.csv
+
 split_ratio: [90, 10]
 skip_prep: False
 
