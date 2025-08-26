@@ -12,8 +12,6 @@ import tqdm
 
 def prep_data(
             spk_source_dir: str,
-            poison_dir: str,
-            test_dir: str,
             test_frac: float = 0.25,
             ):
     
@@ -34,39 +32,22 @@ def prep_data(
 
     return poison_files, test_files
 
-if __name__ == "__main__":
-
-    spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/DEBUG' # Where to save poison and test data
-    spk_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox2_dev_poison" # Directory with embeddings for protected speaker audio files
-    train_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox1_train" # Directory with embeddings for clean training data
-    n_verif_pairs = 500
-    num_target_spk = 5
-    test_frac = 0.25
-    files_per_speaker = 100
-    normalize = True
-    metric = 'cosine'
-    n_clusters = 10
-
-    # assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" # DEBUG
-
-    poison_dir = os.path.join(save_dir, 'poison-data', 'wav')
-    test_dir = os.path.join(save_dir, 'test-data', 'wav')
-    
-    os.makedirs(poison_dir, exist_ok=True)
-    os.makedirs(test_dir, exist_ok=True)
-    info_path = os.path.join(save_dir, 'poison_info.json')
-    
-    poison_files, test_files = prep_data(
-        spk_source_dir=spk_source_dir,
-        poison_dir=poison_dir,
-        test_dir=test_dir,
-        test_frac=test_frac,
-    )
-    
-    for source_path in test_files: # Copy test files to test dir
-        shutil.copy(source_path, test_dir)
-    
+def embed_informed_poisoning_v1_1(
+    poison_files,
+    test_files,
+    save_dir,
+    spk_source_dir,
+    spk_embed_dir,
+    train_embed_dir,
+    poison_dir,
+    test_dir,
+    info_path,
+    n_verif_pairs = 500,
+    test_frac = 0.25,
+    normalize = True,
+    metric = 'cosine',
+    n_canidates = 5,
+):
     # Load embeddings for poison files
     print("Loading poison data embeddings...")
     poison_embeds = {}
@@ -102,19 +83,115 @@ if __name__ == "__main__":
 
     del train_embeds # Free up memory
             
-    print(f"Loaded {len(poison_embeds)} poison embeddings and {len(train_embeds)} training speaker embeddings.")
+    print(f"Loaded {len(poison_embeds)} poison embeddings and {len(spk_avg_embeds)} training speaker embeddings.")
     
-    spk_avg_embed_arr = np.array([spk_avg_embeds[id] for id in spk_avg_embeds.keys()])
+    train_spk_avg_embeds_arr = np.array([spk_avg_embeds[id] for id in spk_avg_embeds.keys()])
+    train_spk_ids = list(spk_avg_embeds.keys())
     
-    # VERSION 1.0
-    kmean = KMeans(n_clusters=n_clusters, random_state=0)
-    kmean.fit(spk_avg_embed_arr)
+    # VERSION 1.0: Labels for each poison samples are selected from the N training speakers closest to said embedding
+    poison_map = {}
+    for file, poison_embed in poison_embeds.items():
+        
+        if metric == 'cosine': # Compute distances to all training speakers
+            distances = cosine_distances(poison_embed.reshape(1, -1), train_spk_avg_embeds_arr).squeeze()
+        elif metric == 'euclidean':
+            distances = euclidean_distances(poison_embed.reshape(1, -1), train_spk_avg_embeds_arr).squeeze()
 
+        candidate_indices = np.argsort(distances)[:n_canidates]
+        target_spk = choice([train_spk_ids[i] for i in candidate_indices]) # Randomly select one of the N closest speakers
+        if target_spk not in poison_map.values():
+            poison_map[target_spk] = [file]
+        else:
+            poison_map[target_spk].append(file)
 
+    # Copy poison and test files to their respective directories
+    for target_spk, poisoned_spk_files in poison_map.items():
+        
+        target_dir = os.path.join(poison_dir, target_spk , '00001')
+        os.makedirs(target_dir, exist_ok=True)
+        
+        for source_path in poisoned_spk_files:
+            # Handle potential filename collisions
+            filename = os.path.basename(source_path) 
+            target_path = os.path.join(target_dir, filename)
+            suffix = 1
+            while os.path.exists(target_path):
+                name, ext = os.path.splitext(filename)
+                target_path = os.path.join(target_dir, f"{name}_{suffix}{ext}")
+                suffix += 1
+            
+            shutil.copy(source_path, target_path)
+
+    for source_path in test_files:
+        shutil.copy(source_path, test_dir)
     
+    info = {
+        'spk_source_dir': spk_source_dir,
+        'save_dir': save_dir,
+        'spk_embed_dir': spk_embed_dir,
+        'train_embed_dir': train_embed_dir,
+        'n_verif_pairs': n_verif_pairs,
+        'test_frac': test_frac,
+        'normalize': normalize,
+        'metric': metric,
+        'n_canidates': n_canidates,
+        'poison_dir': poison_dir,
+        'test_dir': test_dir,
+        'poison_map': poison_map,
+        "poison_files": poison_files,
+        'test_files': test_files,
+    }
     
+    # Save the info to a JSON file 
+    with open(info_path, 'w') as f:
+        json.dump(info, f, indent=4)
+
+if __name__ == "__main__":
+
+    from build_protected_spk_verification_pairs import build_and_save_verification_pairs
+
+    spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v1.1/id08616' # Where to save poison and test data
+    spk_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox2_dev_poison" # Directory with embeddings for protected speaker audio files
+    train_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox1_train" # Directory with embeddings for clean training data
+    n_verif_pairs = 500
+    test_frac = 0.25
+    normalize = True
+    metric = 'cosine' # Distance metric to use: 'cosine' or 'euclidean'
+    n_canidates = 10 # Number of candidate target speakers to consider for each poison sample
+
+    assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" 
+
+    poison_dir = os.path.join(save_dir, 'poison-data', 'wav')
+    test_dir = os.path.join(save_dir, 'test-data', 'wav')
     
+    os.makedirs(poison_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+    info_path = os.path.join(save_dir, 'poison_info.json')
     
+    poison_files, test_files = prep_data(
+        spk_source_dir=spk_source_dir,
+        test_frac=test_frac,
+    )
+    
+    embed_informed_poisoning_v1_1(
+        poison_files=poison_files,
+        test_files=test_files,
+        save_dir=save_dir,
+        spk_source_dir=spk_source_dir,
+        spk_embed_dir=spk_embed_dir,
+        train_embed_dir=train_embed_dir,
+        poison_dir=poison_dir,
+        test_dir=test_dir,
+        info_path=info_path,
+        n_verif_pairs=n_verif_pairs,
+        test_frac=test_frac,
+        normalize=normalize,
+        metric=metric,
+        n_canidates=n_canidates,
+    )
+    
+    build_and_save_verification_pairs(save_dir, n_pairs=n_verif_pairs)
     
     
     
