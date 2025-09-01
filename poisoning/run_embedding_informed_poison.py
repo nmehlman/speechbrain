@@ -92,7 +92,7 @@ def embed_informed_poisoning_v1_1(
     train_spk_avg_embeds_arr = np.array([spk_avg_embeds[id] for id in spk_avg_embeds.keys()])
     train_spk_ids = list(spk_avg_embeds.keys())
     
-    # VERSION 1.0: Labels for each poison samples are selected from the N training speakers closest to said embedding
+    # VERSION 1.1: Labels for each poison samples are selected from the N training speakers closest to said embedding
     poison_map = {}
     for file, poison_embed in poison_embeds.items():
         
@@ -104,7 +104,7 @@ def embed_informed_poisoning_v1_1(
         candidate_indices = np.argsort(distances)[:n_canidates]
         target_spks = sample([train_spk_ids[i] for i in candidate_indices], k=upsample_factor) # Upsample by assigning multiple poison samples to each selected speaker
         for target_spk in target_spks: 
-            if target_spk not in poison_map.values():
+            if target_spk not in poison_map.keys():
                 poison_map[target_spk] = [file]
             else:
                 poison_map[target_spk].append(file)
@@ -137,6 +137,7 @@ def embed_informed_poisoning_v1_1(
         'train_embed_dir': train_embed_dir,
         'n_verif_pairs': n_verif_pairs,
         'test_frac': test_frac,
+        'upsample_factor': upsample_factor,
         'normalize': normalize,
         'metric': metric,
         'n_canidates': n_canidates,
@@ -164,6 +165,7 @@ def embed_informed_poisoning_v2_0(
     n_verif_pairs = 500,
     n_clusters = 10, 
     min_tgt_cluster_size = 10,
+    upsample_factor = 1,
     test_frac = 0.25,
     normalize = True,
 ):
@@ -233,8 +235,9 @@ def embed_informed_poisoning_v2_0(
 
     poison_map = {tgt_spk: [] for tgt_spk in target_speakers}
     for file in poison_files:
-        poison_label = choice(target_speakers)
-        poison_map[poison_label].append(file)
+        poison_labels = sample(target_speakers, k=upsample_factor)
+        for poison_label in poison_labels:
+            poison_map[poison_label].append(file)
     
     # Copy poison and test files to their respective directories
     for target_spk, poisoned_spk_files in poison_map.items():
@@ -269,6 +272,7 @@ def embed_informed_poisoning_v2_0(
         "n_clusters": n_clusters, 
         "min_tgt_cluster_size": min_tgt_cluster_size,
         'test_dir': test_dir,
+        'upsample_factor': upsample_factor,
         'poison_map': poison_map,
         "poison_files": poison_files,
         'test_files': test_files,
@@ -416,7 +420,7 @@ if __name__ == "__main__":
     from build_protected_spk_verification_pairs import build_and_save_verification_pairs
 
     spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v2.1/id08616' # Where to save poison and test data
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v2.0/id08616-2x-upsample' # Where to save poison and test data
     spk_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox2_dev_poison" # Directory with embeddings for protected speaker audio files
     train_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox1_train" # Directory with embeddings for clean training data
     n_verif_pairs = 500
@@ -425,6 +429,7 @@ if __name__ == "__main__":
     normalize = True
     n_clusters = 25
     min_tgt_cluster_size = 20
+    upsample_factor = 2
 
     assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" 
 
@@ -440,7 +445,7 @@ if __name__ == "__main__":
         test_frac=test_frac,
     )
     
-    embed_informed_poisoning_v2_1(
+    embed_informed_poisoning_v2_0(
         poison_files=poison_files,
         test_files=test_files,
         save_dir=save_dir,
@@ -455,6 +460,7 @@ if __name__ == "__main__":
         normalize=normalize,
         n_clusters=n_clusters,
         min_tgt_cluster_size=min_tgt_cluster_size,
+        upsample_factor=upsample_factor,
     )
     
     build_and_save_verification_pairs(save_dir, n_pairs=n_verif_pairs)
