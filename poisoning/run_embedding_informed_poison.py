@@ -92,7 +92,7 @@ def embed_informed_poisoning_v1_1(
     train_spk_avg_embeds_arr = np.array([spk_avg_embeds[id] for id in spk_avg_embeds.keys()])
     train_spk_ids = list(spk_avg_embeds.keys())
     
-    # VERSION 1.0: Labels for each poison samples are selected from the N training speakers closest to said embedding
+    # VERSION 1.1: Labels for each poison samples are selected from the N training speakers closest to said embedding
     poison_map = {}
     for file, poison_embed in poison_embeds.items():
         
@@ -104,7 +104,7 @@ def embed_informed_poisoning_v1_1(
         candidate_indices = np.argsort(distances)[:n_canidates]
         target_spks = sample([train_spk_ids[i] for i in candidate_indices], k=upsample_factor) # Upsample by assigning multiple poison samples to each selected speaker
         for target_spk in target_spks: 
-            if target_spk not in poison_map.values():
+            if target_spk not in poison_map.keys():
                 poison_map[target_spk] = [file]
             else:
                 poison_map[target_spk].append(file)
