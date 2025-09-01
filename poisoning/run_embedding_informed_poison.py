@@ -137,6 +137,7 @@ def embed_informed_poisoning_v1_1(
         'train_embed_dir': train_embed_dir,
         'n_verif_pairs': n_verif_pairs,
         'test_frac': test_frac,
+        'upsample_factor': upsample_factor,
         'normalize': normalize,
         'metric': metric,
         'n_canidates': n_canidates,
@@ -416,15 +417,16 @@ if __name__ == "__main__":
     from build_protected_spk_verification_pairs import build_and_save_verification_pairs
 
     spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v2.1/id08616' # Where to save poison and test data
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v1.1/id08616-2x-upsample' # Where to save poison and test data
     spk_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox2_dev_poison" # Directory with embeddings for protected speaker audio files
     train_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox1_train" # Directory with embeddings for clean training data
     n_verif_pairs = 500
     test_frac = 0.25
 
     normalize = True
-    n_clusters = 25
-    min_tgt_cluster_size = 20
+    metric = 'cosine'
+    n_canidates = 5
+    upsample_factor = 2 # Assign each sample to multiple target speakers
 
     assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" 
 
@@ -440,7 +442,7 @@ if __name__ == "__main__":
         test_frac=test_frac,
     )
     
-    embed_informed_poisoning_v2_1(
+    embed_informed_poisoning_v1_1(
         poison_files=poison_files,
         test_files=test_files,
         save_dir=save_dir,
@@ -453,8 +455,9 @@ if __name__ == "__main__":
         n_verif_pairs=n_verif_pairs,
         test_frac=test_frac,
         normalize=normalize,
-        n_clusters=n_clusters,
-        min_tgt_cluster_size=min_tgt_cluster_size,
+        n_canidates=n_canidates,
+        metric=metric,
+        upsample_factor=upsample_factor,
     )
     
     build_and_save_verification_pairs(save_dir, n_pairs=n_verif_pairs)
