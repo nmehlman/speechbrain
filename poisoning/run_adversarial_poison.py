@@ -143,6 +143,10 @@ def adversarial_poisoning_v1_0(
 
             torchaudio.save(target_path, x_adv.detach().cpu(), 16000)
 
+    # Copy test files to test directory
+    for source_path in test_files:
+        shutil.copy(source_path, test_dir)
+
     info = {
         'spk_source_dir': spk_source_dir,
         'save_dir': save_dir,
@@ -170,7 +174,7 @@ if __name__ == "__main__":
 
     spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
     train_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/' # Directory with clean training data
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/adversarial_v1.0/id08616' # Where to save poison and test data
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/adversarial_v1.0/id08616-2x-upsample' # Where to save poison and test data
     n_verif_pairs = 500
     test_frac = 0.25
 
@@ -178,7 +182,7 @@ if __name__ == "__main__":
     num_steps = 100
     step_size = 10
     num_tgt_speakers = 10
-    upsample_factor = 1  # Number of adversarial examples to generate per original audio file
+    upsample_factor = 2  # Number of adversarial examples to generate per original audio file
 
     assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" 
 
