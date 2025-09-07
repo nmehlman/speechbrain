@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
     train_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/' # Directory with clean training data
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/adversarial_v1.0/id08616-2x-upsample' # Where to save poison and test data
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/adversarial_v1.0/id08616' # Where to save poison and test data
     n_verif_pairs = 500
     test_frac = 0.25
 
