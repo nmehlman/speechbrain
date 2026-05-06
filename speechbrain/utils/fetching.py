@@ -335,7 +335,6 @@ def fetch(
     ValueError
         If file is not found
     """
-
     if save_filename is None:
         save_filename = filename
 

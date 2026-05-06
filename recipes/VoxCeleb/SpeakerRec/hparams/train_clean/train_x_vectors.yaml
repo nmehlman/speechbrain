@@ -4,9 +4,9 @@
 # ################################
 
 # Basic parameters
-seed: 1986
+seed: 1989
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref /project2/shrikann_35/nmehlman/logs/svpp/repro/speechbrain-xvec-repro
+output_folder: !ref /project2/shrikann_35/nmehlman/logs/svpp/clean-models/xvec-seed-1989
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 

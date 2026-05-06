@@ -174,15 +174,15 @@ if __name__ == "__main__":
 
     spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
     train_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/vox1/vox1_dev_wav/' # Directory with clean training data
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/adversarial_v1.0/id08616' # Where to save poison and test data
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/adversarial_v1.0/id08616-10x-upsample' # Where to save poison and test data
     n_verif_pairs = 500
     test_frac = 0.25
 
     eps = 1.0
     num_steps = 100
     step_size = 10
-    num_tgt_speakers = 10
-    upsample_factor = 2  # Number of adversarial examples to generate per original audio file
+    num_tgt_speakers = 40
+    upsample_factor = 10  # Number of adversarial examples to generate per original audio file
 
     assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" 
 

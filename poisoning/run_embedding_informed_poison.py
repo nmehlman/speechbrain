@@ -420,16 +420,16 @@ if __name__ == "__main__":
     from build_protected_spk_verification_pairs import build_and_save_verification_pairs
 
     spk_source_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/source/vox2-dev/wav/id08616' # Directory with protected speaker audio files
-    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v2.0/id08616-2x-upsample' # Where to save poison and test data
+    save_dir = '/project2/shrikann_35/nmehlman/data/svpp-data/poison/informed_v2.0/id08616-100x-upsample' # Where to save poison and test data
     spk_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox2_dev_poison" # Directory with embeddings for protected speaker audio files
     train_embed_dir = "/project2/shrikann_35/nmehlman/logs/svpp/embeddings/vox1_train" # Directory with embeddings for clean training data
     n_verif_pairs = 500
     test_frac = 0.25
 
     normalize = True
-    n_clusters = 25
-    min_tgt_cluster_size = 20
-    upsample_factor = 2
+    n_clusters = 5
+    min_tgt_cluster_size = 100
+    upsample_factor = 100
 
     assert not os.path.exists(save_dir), f"Save directory {save_dir} already exists!" 
 
